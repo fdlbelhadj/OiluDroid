@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ChooserActivity"
+    android:background="@color/white">
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Please, choose target code "
+        android:textAlignment="center"
+        android:background="@android:color/darker_gray"
+        android:textColor="@color/black"
+        android:textAppearance="@style/TextAppearance.AppCompat.Display1"
+        android:layout_alignParentTop="true"
+        />
+
+    <RadioGroup
+        android:id="@+id/rgroup"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/okbtn"
+        android:layout_below="@+id/textView"
+
+        android:divider="@color/purple_500"
+
+        android:dividerPadding="@dimen/cardview_compat_inset_shadow"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/oiluRBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:checked="true"
+            android:drawableStart="@drawable/oilucode"
+            android:text="  OILU Code"
+            android:textColor="@color/black" />
+
+        <FrameLayout
+            android:id="@+id/frameLyt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:visibility="visible">
+
+            <CheckBox
+                android:id="@+id/checkBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="black segment/White Bkg" />
+        </FrameLayout>
+
+        <RadioButton
+            android:id="@+id/radioButton2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:drawableStart="@drawable/qrcode"
+            android:text="  QR Code"
+            android:textColor="@color/black" />
+
+        <RadioButton
+            android:id="@+id/radioButton3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:drawableStart="@drawable/barcode"
+            android:text="   BAR Code"
+            android:textColor="@color/black" />
+
+        <RadioButton
+            android:id="@+id/radioButton4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:drawableStart="@drawable/aruco6"
+            android:text="   ARUCO Code"
+            android:textColor="@color/black" />
+
+    </RadioGroup>
+
+    <Button
+        android:id="@+id/okbtn"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:text="OK" />
+
+
+
+</RelativeLayout>
