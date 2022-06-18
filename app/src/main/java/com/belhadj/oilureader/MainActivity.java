@@ -189,9 +189,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2 { //
         for (int i = 0; i < mList.size(); i++)
         {
             com.belhadj.oilureader.OiluMarker marker = mList.get(i);
-            String id = "";
             try {
-                id = marker.getMarkerId_WithMHH( bins, false);
+                marker.getMarkerId_WithMHH( bins, false);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -207,11 +206,11 @@ public class MainActivity extends Activity implements CvCameraViewListener2 { //
         if(bitmap == null) return;
         mRgba = new Mat();
         Utils.bitmapToMat(bitmap, mRgba);
-        oiluDetector = new OiluMarkerDetector(MIN_CONTOUR_SIZE, new Size(CANONICAL_MARKER_SIZE, CANONICAL_MARKER_SIZE), false);
-        for (int i = 0; i < 100; i++) {
+        oiluDetector = new OiluMarkerDetector(MIN_CONTOUR_SIZE, new Size(CANONICAL_MARKER_SIZE, CANONICAL_MARKER_SIZE));
+        //for (int i = 0; i < 100; i++) {
             ProcessOiluCode(mRgba, false);
 
-        }
+        //}
     }
 
     private void getCameraPermission() {
@@ -250,7 +249,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2 { //
         } else {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
-            detectStaticImage();
+            //stat
+            // detectStaticImage();
 
         }
     }
@@ -263,7 +263,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2 { //
 
     public void onCameraViewStarted(int width, int height) {
         //mRgba = new Mat( height, width, CvType.CV_8UC3);
-        oiluDetector = new com.belhadj.oilureader.OiluMarkerDetector(MIN_CONTOUR_SIZE, new Size(CANONICAL_MARKER_SIZE, CANONICAL_MARKER_SIZE), false);
+        oiluDetector = new com.belhadj.oilureader.OiluMarkerDetector(MIN_CONTOUR_SIZE, new Size(CANONICAL_MARKER_SIZE, CANONICAL_MARKER_SIZE));
     }
 
     public void onCameraViewStopped() {
@@ -280,8 +280,9 @@ public class MainActivity extends Activity implements CvCameraViewListener2 { //
                 case LoaderCallbackInterface.SUCCESS:
                 {
                     Log.i(TAG, "OpenCV loaded successfully");
-                    //mOpenCvCameraView.enableView();
-                    // mOpenCvCameraView.setOnTouchListener(MainActivity.this);
+                    //
+                    // stat
+                    mOpenCvCameraView.enableView();
                 } break;
                 default:
                 {

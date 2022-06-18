@@ -28,7 +28,7 @@ Copyright 2011 Rafael Muñoz Salinas. All rights reserved.
 */
 package com.belhadj.oilureader;
 
-import android.util.Log;
+
 import android.util.TimingLogger;
 
 import org.opencv.core.CvType;
@@ -46,32 +46,35 @@ import java.util.Vector;
 
 public class OiluMarkerDetector {
 
-    DetectorParameters detectorParams;
-    private  int minContourSizeAllowed;
-    private Size canonicalMarkerSize;
-    private  boolean debug;
-    public Mat thresholdImage;
-    private Mat greyImage;
-    TimingLogger timingLogger;
-    //debugWindow debugW;
 
-    public OiluMarkerDetector(int m_minContourSizeAllowed, Size canonicalMarkerSize, boolean debug )
+    DetectorParameters detectorParams;
+    private final int minContourSizeAllowed;
+    private final Size canonicalMarkerSize;
+    private Mat greyImage;
+
+    public OiluMarkerDetector(int m_minContourSizeAllowed, Size canonicalMarkerSize )
     {
         detectorParams = new DetectorParameters();
 
         minContourSizeAllowed = m_minContourSizeAllowed;
         this.canonicalMarkerSize = canonicalMarkerSize;
-        this.debug = debug;
     }
 
 
     public List<OiluMarker> getCandidateMarkers(Mat _image)
     {
-        if (_image.empty()) return null;
+        // adb shell setprop log.tag.TIMING VERBOSE
+        TimingLogger timings = new TimingLogger("TIMING", "getCandidateMarkers");
 
-        greyImage = ConvertToGrey(_image);
-        List<MatOfPoint> candidatesSet = DetectCandidates(greyImage);
-        List<OiluMarker> list = getRefinedMarkerList(candidatesSet);
+            if (_image.empty()) return null;
+
+            greyImage = ConvertToGrey(_image);
+            List<MatOfPoint> candidatesSet = DetectCandidates(greyImage);
+        timings.addSplit("getCandidateMarkers : ExtractionTime");
+
+            List<OiluMarker> list = getRefinedMarkerList(candidatesSet);
+        timings.addSplit("getCandidateMarkers : getRefinedMarkerList" + list.size());
+        timings.dumpToLog();
 
         return  list;
     }
@@ -83,7 +86,7 @@ public class OiluMarkerDetector {
         for (int i = 0; i < candidates.size(); i++)
         {
             Mat canonicalMarker = new Mat();
-            Vector<Point> corners = new Vector<Point>();
+            Vector<Point> corners = new Vector<>();
             Converters.Mat_to_vector_Point2d(candidates.get(i), corners);
 
             OiluMarker marker = new OiluMarker(corners, canonicalMarkerSize);
@@ -101,70 +104,63 @@ public class OiluMarkerDetector {
     List<MatOfPoint> DetectCandidates(Mat greyImage)
     {
 
-        Vector<MatOfPoint> candidates = new Vector<MatOfPoint>();
-        Vector<MatOfPoint> contours = new Vector<MatOfPoint>();
+        Vector<MatOfPoint> candidates = new Vector<>();
+        Vector<MatOfPoint> contours = new Vector<>();
 
         /// TODO: work on execution speed
         DetectInitialCandidates(greyImage, candidates, contours);
-
         candidates = _reorderCandidatesCorners(candidates);
 
         /// TODO: work on execution speed
-        List<MatOfPoint> res = _filterTooCloseCandidates(candidates, contours);
-
-        return res;
+        //List<MatOfPoint> res = _filterTooCloseCandidates(candidates, contours);
+        return candidates;
 
     }
 
-//    private void ShowContours(VectorOfVectorOfPoint contours, VectorOfVectorOfPointF candidates)
-//    {
-//        if (debug)
-//        {
-//            Mat contoursMat = new Mat(greyImage.Size, greyImage.Depth, greyImage.NumberOfChannels);
-//            contoursMat.SetTo(new MCvScalar(0, 0, 0));
-//            Imgproc.Polylines(contoursMat, contours, true, new MCvScalar(255, 255, 255));
-//            debugW.ShowMat(contoursMat, "All contours");
-//
-//            contoursMat.SetTo(new MCvScalar(0, 0, 0));
-//            VectorOfVectorOfPoint vect = new VectorOfVectorOfPoint();
-//            for (int i = 0; i < candidates.Size; i++)
-//            {
-//                vect.Push(new VectorOfPoint(Array.ConvertAll(candidates[i].ToArray(), Point.Round)));
-//            }
-//            Imgproc.Polylines(contoursMat, vect, true, new MCvScalar(255, 255, 255));
-//            debugW.ShowMat(contoursMat, "squares approximés");
-//        }
-//    }
-
     public void DetectInitialCandidates(Mat grey, Vector<MatOfPoint> candidates, Vector<MatOfPoint> contours)
     {
+        //TimingLogger timings = new TimingLogger("TIMING", "DetectInitialCandidates");
 
-        int nScales = (detectorParams.adaptiveThreshWinSizeMax - detectorParams.adaptiveThreshWinSizeMin) /
+            int nScales = (detectorParams.adaptiveThreshWinSizeMax - detectorParams.adaptiveThreshWinSizeMin) /
                 detectorParams.adaptiveThreshWinSizeStep + 1;
 
-        // ADD two cases of thresholding : canny and binarization threshold
-        List<List<MatOfPoint>> candidatesArrays = new ArrayList<>(nScales + 2);
-        for (int i = 0; i < nScales+2; i++)
-            candidatesArrays.add(new ArrayList<MatOfPoint>());
+            nScales = 1;
 
-        List<List<MatOfPoint>> contoursArrays = new ArrayList<>(nScales + 2);
-        for (int i = 0; i < nScales+2; i++)
-            contoursArrays.add( new ArrayList<MatOfPoint>());
+            // ADD two cases of thresholding : canny and binarization threshold
+            List<List<MatOfPoint>> candidatesArrays = new ArrayList<>(nScales );
+            for (int i = 0; i < nScales; i++)
+                candidatesArrays.add(new ArrayList<>());
 
-        for (int range = 0; range < nScales; range++)
-        //Parallel.For(0, nScales, range =>
-        {
-            int currScale = detectorParams.adaptiveThreshWinSizeMin + range * detectorParams.adaptiveThreshWinSizeStep;
-            Mat thresh = new Mat();
-            Threshold(grey, thresh, currScale, detectorParams.adaptiveThreshConstant);
-            FindImageContours(thresh, candidatesArrays.get(range), contoursArrays.get(range));
+            List<List<MatOfPoint>> contoursArrays = new ArrayList<>(nScales );
+            for (int i = 0; i < nScales; i++)
+                contoursArrays.add( new ArrayList<>());
 
-        }
-        //);
+            contoursFinderThread[] threads = new contoursFinderThread[nScales] ;
+            for (int i = 0; i < nScales; i++) {
+                int currScale = detectorParams.adaptiveThreshWinSizeMin + 2    ////////////++++++++%%%%%%%LLLLLKKKKKKK
+                        * detectorParams.adaptiveThreshWinSizeStep;
+                threads[i] = new contoursFinderThread(grey,candidatesArrays.get(i), contoursArrays.get(i),currScale, detectorParams.adaptiveThreshConstant  );
+                threads[i].start();
+            }
+            for (int i = 0; i < nScales; i++) {
+                try {
+                    threads[i].join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
 
-
-
-        // to avoid the adaptivethreshold artifacts, add a threshold binarization case
+//            for (int range = 0; range < nScales; range++)
+//            {
+//
+//                int currScale = detectorParams.adaptiveThreshWinSizeMin + range * detectorParams.adaptiveThreshWinSizeStep;
+//                Mat thresh = new Mat();
+//                Threshold(grey, thresh, currScale, detectorParams.adaptiveThreshConstant);
+//                FindImageContours(thresh, candidatesArrays.get(range), contoursArrays.get(range));
+//
+//            }
+//
+//          to avoid the adaptivethreshold artifacts, add a threshold binarization case
 //        thresholdImage = new Mat();
 //        Imgproc.threshold(grey, thresholdImage, detectorParams.binarizationThresh, 255, Imgproc.THRESH_BINARY);
 //        FindImageContours(thresholdImage, candidatesArrays.get(nScales), contoursArrays.get(nScales));
@@ -176,7 +172,7 @@ public class OiluMarkerDetector {
         //if (debug) debugW.ShowMat(cannyImg, "cannyImg");
 
         // join candidates
-        for (int i = 0; i < nScales + 2; i++)
+        for (int i = 0; i < nScales ; i++)
         {
             for (int j = 0; j < candidatesArrays.get(i).size(); j++)
             {
@@ -184,11 +180,17 @@ public class OiluMarkerDetector {
                 contours.add(contoursArrays.get(i).get(j));
             }
         }
+        //timings.addSplit("DetectInitialCandidates : thread based contours detection");
+        //timings.dumpToLog();
     }
+
+
+
 
     public void FindImageContours(Mat _inThresh, List<MatOfPoint> candidatesOut, List<MatOfPoint> contoursOut)
     {
-        //CVASSERT
+        //TimingLogger timings = new TimingLogger("TIMING", "FindImageContours");
+
         if (!(detectorParams.minMarkerPerimeterRate > 0 && detectorParams.maxMarkerPerimeterRate > 0 &&
                 detectorParams.polygonalApproxAccuracyRate > 0 && detectorParams.minCornerDistanceRate >= 0 &&
                 detectorParams.minDistanceToBorder >= 0))
@@ -200,11 +202,13 @@ public class OiluMarkerDetector {
         int maxPerimeterPixels =
                 (int)(detectorParams.maxMarkerPerimeterRate * Math.max(_inThresh.cols(), _inThresh.rows()));
 
-        Mat contoursImg = new Mat();
-        _inThresh.copyTo(contoursImg);
+        Mat contoursImg = _inThresh; //.copyTo(contoursImg);
         List<MatOfPoint> contours = new ArrayList<>();
         Mat h = new Mat();
         Imgproc.findContours(contoursImg, contours, h, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_NONE);
+
+        //timings.addSplit("Imgproc.findContours");
+
         // now filter list of contours
         for (int i = 0; i < contours.size(); i++)
         {
@@ -218,10 +222,11 @@ public class OiluMarkerDetector {
             MatOfPoint2f approxCurve = new MatOfPoint2f();
             Imgproc.approxPolyDP(c2f, approxCurve, perim * detectorParams.polygonalApproxAccuracyRate, true);
 
+            if (approxCurve.total() != 4 ) continue;
+
             MatOfPoint approxC = new MatOfPoint();
             approxCurve.convertTo(approxC, CvType.CV_32SC2);
-
-            if (approxCurve.total() != 4 || !Imgproc.isContourConvex(approxC)) continue;
+            if ( !Imgproc.isContourConvex(approxC)) continue;
 
             // check min distance between corners
             double minDistSq =
@@ -230,38 +235,35 @@ public class OiluMarkerDetector {
 
             for (int j = 0; j < 4; j++)
             {
-                double d = (double)(approxPoints[j].x - approxPoints[(j + 1) % 4].x) *
-                        (double)(approxPoints[j].x - approxPoints[(j + 1) % 4].x) +
-                        (double)(approxPoints[j].y - approxPoints[(j + 1) % 4].y) *
-                                (double)(approxPoints[j].y - approxPoints[(j + 1) % 4].y);
+                double d = (approxPoints[j].x - approxPoints[(j + 1) % 4].x) * (approxPoints[j].x - approxPoints[(j + 1) % 4].x) +
+                           (approxPoints[j].y - approxPoints[(j + 1) % 4].y) * (approxPoints[j].y - approxPoints[(j + 1) % 4].y);
                 minDistSq = Math.min(minDistSq, d);
             }
-            double minCornerDistancePixels = (double)(contours.get(i).total()) * detectorParams.minCornerDistanceRate;
-            //TODO: check this formula
-            minCornerDistancePixels = minContourSizeAllowed;
-            if (minDistSq < minCornerDistancePixels * minCornerDistancePixels) continue;
+
+            if (minDistSq < minContourSizeAllowed * minContourSizeAllowed) continue;
 
             // check if it is too near to the image border
             boolean tooNearBorder = false;
             for (int j = 0; j < 4; j++)
             {
-                if (approxPoints[j].x < detectorParams.minDistanceToBorder ||
-                        approxPoints[j].y < detectorParams.minDistanceToBorder ||
-                        approxPoints[j].x > contoursImg.cols() - 1 - detectorParams.minDistanceToBorder ||
-                        approxPoints[j].y > contoursImg.rows() - 1 - detectorParams.minDistanceToBorder)
+                if (approxPoints[j].x < detectorParams.minDistanceToBorder || approxPoints[j].y < detectorParams.minDistanceToBorder ||
+                    approxPoints[j].x > contoursImg.cols() - 1 - detectorParams.minDistanceToBorder ||
+                    approxPoints[j].y > contoursImg.rows() - 1 - detectorParams.minDistanceToBorder)
                     tooNearBorder = true;
             }
             if (tooNearBorder) continue;
 
             // if it passes all the test, add to candidates vector
-
             candidatesOut.add(approxC);
             contoursOut.add(contours.get(i));
         }
+        //timings.addSplit("end squares approximation and filtering");
+        //timings.dumpToLog();
     }
 
     List<MatOfPoint> _filterTooCloseCandidates(Vector<MatOfPoint> candidatesIn, Vector<MatOfPoint> contoursIn)
     {
+        //TimingLogger timings = new TimingLogger("TIMING", "_filterTooCloseCandidates");
 
         if (!(detectorParams.minMarkerDistanceRate >= 0)) return null;
 
@@ -334,8 +336,8 @@ public class OiluMarkerDetector {
             }
         }
 
+        //timings.addSplit("_filterTooCloseCandidates : collectin ");
         // save possible candidates
-
         List<MatOfPoint> biggerCandidates = new ArrayList<>();
         //VectorOfVectorOfPoint biggerContours = new VectorOfVectorOfPoint();
 
@@ -373,6 +375,9 @@ public class OiluMarkerDetector {
             //biggerContours.Push(contoursIn[biggerIdx]);
         }
 
+        //timings.addSplit("_filterTooCloseCandidates : end filtering");
+        //timings.dumpToLog();
+
         return biggerCandidates;
     }
 
@@ -403,6 +408,7 @@ public class OiluMarkerDetector {
 
     static Vector<MatOfPoint> _reorderCandidatesCorners(Vector<MatOfPoint> candidates)
     {
+        //TimingLogger timings = new TimingLogger("TIMING", "getCandidateMarkers");
         int size = candidates.size();
         Vector<MatOfPoint>  refinedCandidates = new Vector<>(size);
 
@@ -426,9 +432,42 @@ public class OiluMarkerDetector {
             refinedCandidates.add( new MatOfPoint(pointfs));
 
         }
-
+        //timings.addSplit("_reorderCandidatesCorners : end");
+        //timings.dumpToLog();
         return refinedCandidates;
     }
+
+    private class contoursFinderThread extends Thread{
+        Mat grey;
+        List<MatOfPoint> resCandidates;
+        List<MatOfPoint> resContours;
+        int scale;
+        double threshCte;
+
+        public contoursFinderThread(Mat grey, List<MatOfPoint> resCandidates,List<MatOfPoint> resContours , int scale, double cte) {
+            this.grey = grey;
+            this.resCandidates = resCandidates;
+            this.resContours = resContours;
+            this.scale = scale;
+            this.threshCte = cte;
+        }
+
+        @Override
+        public void run() {
+            TimingLogger timings = new TimingLogger("TIMING", "contoursFinderThread");
+
+            Mat thresh = new Mat();
+            Threshold(grey, thresh, scale, threshCte);
+
+            timings.addSplit("contoursFinderThread : threshold + " + scale);
+
+            FindImageContours(thresh, resCandidates, resContours);
+            timings.addSplit("contoursFinderThread : contours by thread");
+            timings.dumpToLog();
+        }
+
+    }
+
 
 
 }
